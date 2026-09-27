@@ -1,0 +1,27 @@
+# Tells Render how to build and start the API. Secret values are entered in the dashboard.
+# This repository root is already the API, so there is no backend subfolder.
+services:
+  - type: web
+    name: rise-together-api
+    runtime: node
+    buildCommand: npm install && npx puppeteer browsers install chrome
+    startCommand: npm start
+    envVars:
+      # Chrome is saved inside this folder so the running server can still find it.
+      - key: PUPPETEER_CACHE_DIR
+        value: .puppeteer
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      # Gemini key is entered on Render. The value stays out of this file.
+      - key: GEMINI_API_KEY
+        sync: false
