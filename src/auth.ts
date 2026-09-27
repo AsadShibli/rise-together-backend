@@ -129,3 +129,28 @@ authRouter.get("/me", requireAuth, async (req: AuthedRequest, res) => {
     role: user.role,
   });
 });
+
+// Replaces the password after the current one matches. The hash is never returned.
+authRouter.post("/password", requireAuth, async (req: AuthedRequest, res) => {
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword?: string;
+    newPassword?: string;
+  };
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "current password and new password are required" });
+    return;
+  }
+  const user = await User.findById(req.userId);
+  if (!user) {
+    res.status(401).json({ error: "login required" });
+    return;
+  }
+  const passwordOk = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!passwordOk) {
+    res.status(401).json({ error: "current password is wrong" });
+    return;
+  }
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  await user.save();
+  res.json({ ok: true });
+});

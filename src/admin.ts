@@ -49,7 +49,7 @@ adminRouter.post("/templates", requireAdmin, async (req, res) => {
   });
 });
 
-// Changes the title or hides the template. Other fields stay as they were.
+// Changes the title, occasion, colors, photo count, or whether the design is hidden.
 adminRouter.patch("/templates/:id", requireAdmin, async (req, res) => {
   const id = req.params.id;
   if (!mongoose.isValidObjectId(id)) {
@@ -63,11 +63,50 @@ adminRouter.patch("/templates/:id", requireAdmin, async (req, res) => {
     return;
   }
 
-  const body = req.body as { title?: unknown; isActive?: unknown };
+  const body = req.body as {
+    title?: unknown;
+    isActive?: unknown;
+    occasionType?: unknown;
+    photoSlots?: unknown;
+    colors?: unknown;
+  };
   if (typeof body.title === "string" && body.title.trim()) template.title = body.title.trim();
   if (typeof body.isActive === "boolean") template.isActive = body.isActive;
+  if (typeof body.occasionType === "string" && body.occasionType.trim()) {
+    template.occasionType = body.occasionType.trim();
+  }
+
+  const layout = {
+    ...((template.layoutConfig ?? {}) as { colors?: string[]; photoSlots?: number; textSlots?: string[] }),
+  };
+  if (body.photoSlots !== undefined) {
+    if (body.photoSlots !== 1 && body.photoSlots !== 2 && body.photoSlots !== 3) {
+      res.status(400).json({ error: "photoSlots must be 1 to 3 and colors must be two hex values" });
+      return;
+    }
+    layout.photoSlots = body.photoSlots;
+  }
+  if (body.colors !== undefined) {
+    const colorsOk =
+      Array.isArray(body.colors) &&
+      body.colors.length === 2 &&
+      body.colors.every((color) => typeof color === "string" && hex.test(color));
+    if (!colorsOk) {
+      res.status(400).json({ error: "photoSlots must be 1 to 3 and colors must be two hex values" });
+      return;
+    }
+    layout.colors = body.colors as string[];
+  }
+  template.layoutConfig = layout;
+  template.markModified("layoutConfig");
   await template.save();
-  res.json({ id: template.id, title: template.title, isActive: template.isActive });
+  res.json({
+    id: template.id,
+    title: template.title,
+    occasionType: template.occasionType,
+    isActive: template.isActive,
+    layoutConfig: template.layoutConfig,
+  });
 });
 
 // Removes one template. The public list never included a hidden one.
@@ -95,6 +134,7 @@ adminRouter.get("/posters", requireAdmin, async (_req, res) => {
       status: row.status,
       userId: String(row.userId),
       formData: row.formData,
+      generatedImageUrl: row.generatedImageUrl ?? "",
       blocked: row.blocked === true,
       flagged: row.flagged === true,
       clean: row.clean === true,
@@ -164,6 +204,7 @@ adminRouter.get("/templates", requireAdmin, async (_req, res) => {
       title: row.title,
       occasionType: row.occasionType,
       isActive: row.isActive,
+      layoutConfig: row.layoutConfig,
     }))
   );
 });
